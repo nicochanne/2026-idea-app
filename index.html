@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ニュートリション・シンクロ・メソッド</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>" />
+  <!-- Tailwind CSS (CDN版) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide アイコン -->
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.383.0/dist/umd/lucide.min.js"></script>
+  <style>
+    /* React版で使われていた animate-in 系のアニメーションを再現 */
+    @keyframes fadeIn   { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes slideIn  { from { opacity: 0; transform: translateX(2rem) } to { opacity: 1; transform: none } }
+    @keyframes zoomIn   { from { opacity: 0; transform: scale(.95) } to { opacity: 1; transform: none } }
+    .anim-fade  { animation: fadeIn .5s ease both }
+    .anim-fade3 { animation: fadeIn .3s ease both }
+    .anim-slide { animation: slideIn .3s ease both }
+    .anim-zoom  { animation: zoomIn .5s ease both }
+    @media (prefers-reduced-motion: reduce) {
+      .anim-fade, .anim-fade3, .anim-slide, .anim-zoom { animation: none }
+    }
+    html, body { height: 100%; }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <!-- スマホでは全画面、PCではスマホ風フレームで表示 -->
+  <div class="min-h-[100dvh] bg-gray-100 flex justify-center items-center p-0 sm:p-4 font-sans text-gray-800">
+    <div class="w-full sm:max-w-sm bg-white rounded-none sm:rounded-[2rem] shadow-2xl overflow-hidden relative h-[100dvh] sm:h-[750px] flex flex-col border-0 sm:border-[6px] border-gray-800">
+
+      <!-- モバイル風ステータスバー（装飾） -->
+      <div class="h-6 bg-white w-full flex justify-center items-center relative z-20">
+        <div class="w-1/3 h-1 bg-gray-200 rounded-full mt-2"></div>
+      </div>
+
+      <!-- メインコンテンツエリア -->
+      <div id="screen" class="flex-1 overflow-hidden relative bg-white"></div>
+
+      <!-- フッター -->
+      <div class="bg-gray-50 py-3 text-center border-t border-gray-100 z-10">
+        <p class="text-[10px] text-gray-400 font-medium">
+          © 2026 MATSUMOTO TRADING CO.,LTD. Prototype
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 6つの診断タイプのデータ定義
+    const diagnosisData = {
+      fat_excess: {
+        type: '過多', name: '脂質過多型',
+        concern: '皮脂過剰・毛穴の目立ち', care: '皮脂・毛穴ケア',
+        ingredients: ['ビタミンC誘導体', 'サリチル酸'],
+        bgColor: 'bg-blue-50', borderColor: 'border-blue-400', tagColor: 'bg-blue-500', textColor: 'text-blue-900',
+        icon: 'utensils', iconColor: 'text-blue-500'
+      },
+      carb_excess: {
+        type: '過多', name: '炭水化物過多型',
+        concern: '糖化によるくすみ・ゴワつき', care: '抗糖化・くすみケア',
+        ingredients: ['ナイアシンアミド', 'セイヨウオオバコ種子エキス'],
+        bgColor: 'bg-green-50', borderColor: 'border-green-400', tagColor: 'bg-green-500', textColor: 'text-green-900',
+        icon: 'cake-slice', iconColor: 'text-green-500'
+      },
+      alcohol_excess: {
+        type: '過多', name: 'アルコール過多型',
+        concern: '脱水による乾燥・赤み・むくみ', care: '鎮静・高保湿ケア',
+        ingredients: ['ツボクサエキス(CICA)', 'グリチルリチン酸2K'],
+        bgColor: 'bg-purple-50', borderColor: 'border-purple-400', tagColor: 'bg-purple-500', textColor: 'text-purple-900',
+        icon: 'wine', iconColor: 'text-purple-500'
+      },
+      vitamin_def: {
+        type: '不足', name: 'ビタミン不足型',
+        concern: '乾燥・肌荒れ・ターンオーバー乱れ', care: 'ビタミン補給・バリアケア',
+        ingredients: ['ビタミンE', '各種植物エキス'],
+        bgColor: 'bg-orange-50', borderColor: 'border-orange-400', tagColor: 'bg-orange-500', textColor: 'text-orange-900',
+        icon: 'leaf', iconColor: 'text-orange-500'
+      },
+      protein_def: {
+        type: '不足', name: 'タンパク質不足型',
+        concern: 'ハリ・弾力の低下', care: 'ハリ・弾力アップケア',
+        ingredients: ['アミノ酸コンプレックス', '大豆ペプチド'],
+        bgColor: 'bg-pink-50', borderColor: 'border-pink-400', tagColor: 'bg-pink-500', textColor: 'text-pink-900',
+        icon: 'beef', iconColor: 'text-pink-500'
+      },
+      mineral_def: {
+        type: '不足', name: 'ミネラル不足型',
+        concern: 'バリア機能低下・ゆらぎ肌', care: 'ミネラル補給・保水ケア',
+        ingredients: ['海洋深層水エキス', 'マルチミネラル'],
+        bgColor: 'bg-teal-50', borderColor: 'border-teal-400', tagColor: 'bg-teal-500', textColor: 'text-teal-900',
+        icon: 'waves', iconColor: 'text-teal-500'
+      }
+    };
+
+    // 質問画面の選択肢
+    const options = {
+      excess: [
+        { key: 'fat_excess',     icon: 'utensils',   label: '脂っこいものが多い',           hover: 'hover:border-blue-300 hover:bg-blue-50' },
+        { key: 'carb_excess',    icon: 'cake-slice', label: 'ご飯・パン・甘いものが多い',   hover: 'hover:border-green-300 hover:bg-green-50' },
+        { key: 'alcohol_excess', icon: 'wine',       label: 'お酒をよく飲む',               hover: 'hover:border-purple-300 hover:bg-purple-50' }
+      ],
+      deficiency: [
+        { key: 'vitamin_def',  icon: 'leaf',  label: '野菜や果物をあまり食べない',         hover: 'hover:border-orange-300 hover:bg-orange-50' },
+        { key: 'protein_def',  icon: 'beef',  label: '肉・魚・卵・大豆をあまり食べない',   hover: 'hover:border-pink-300 hover:bg-pink-50' },
+        { key: 'mineral_def',  icon: 'waves', label: '海藻・きのこ類を食べない',           hover: 'hover:border-teal-300 hover:bg-teal-50' }
+      ]
+    };
+
+    // 状態
+    let currentScreen = 'home';   // 'home' | 'question' | 'loading' | 'result'
+    let resultKey = null;
+
+    const icon = (name, cls) => `<i data-lucide="${name}" class="${cls}"></i>`;
+
+    function renderHome() {
+      return `
+      <div class="flex flex-col h-full items-center justify-center p-8 anim-fade text-center">
+        <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+          ${icon('sparkles', 'w-10 h-10 text-indigo-500')}
+        </div>
+        <p class="text-xs font-bold tracking-widest text-indigo-500 mb-3">NUTRITION SYNCHRO METHOD</p>
+        <h1 class="text-2xl font-extrabold text-gray-800 mb-6 leading-tight">
+          ニュートリション・<br/>シンクロ・メソッド
+        </h1>
+        <p class="text-gray-600 mb-10 leading-relaxed text-sm">
+          私たちの肌は、食べたものでできている。<br />
+          昨日の食事傾向から、<br/>今日のあなたに最適な美容液をご提案します。
+        </p>
+        <button onclick="handleStart()"
+          class="w-full bg-indigo-600 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex justify-center items-center gap-2">
+          診断を始める
+          ${icon('chevron-right', 'w-5 h-5')}
+        </button>
+      </div>`;
+    }
+
+    function optionButton(o) {
+      return `
+        <button onclick="handleSelectOption('${o.key}')"
+          class="w-full text-left bg-white border-2 border-gray-100 p-4 rounded-xl flex items-center gap-4 ${o.hover} transition-colors shadow-sm">
+          <div class="bg-gray-50 p-2 rounded-full">${icon(o.icon, 'w-5 h-5 text-gray-600')}</div>
+          <span class="font-semibold text-gray-700 text-sm">${o.label}</span>
+        </button>`;
+    }
+
+    function renderQuestion() {
+      return `
+      <div class="flex flex-col h-full p-6 anim-slide">
+        <div class="mb-6 text-center">
+          <h2 class="text-lg font-bold text-gray-800">最近の食事で<br/>当てはまるものは？</h2>
+          <p class="text-xs text-gray-500 mt-2">※デモ用：いずれか1つを選択してください</p>
+        </div>
+        <div class="flex-1 overflow-y-auto space-y-3 pb-4">
+          <div class="text-xs font-bold text-gray-400 mb-2 mt-4 px-2">過剰になりがちなもの</div>
+          ${options.excess.map(optionButton).join('')}
+          <div class="text-xs font-bold text-gray-400 mb-2 mt-6 px-2">不足しがちなもの</div>
+          ${options.deficiency.map(optionButton).join('')}
+        </div>
+      </div>`;
+    }
+
+    function renderLoading() {
+      return `
+      <div class="flex flex-col items-center justify-center h-full p-6 anim-fade3">
+        <div class="relative w-24 h-24 mb-6">
+          <div class="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+          <div class="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+          <div class="absolute inset-0 flex items-center justify-center text-indigo-600">
+            ${icon('droplets', 'w-8 h-8 animate-pulse')}
+          </div>
+        </div>
+        <h2 class="text-xl font-bold text-gray-800 mb-2">AI肌状態推測中...</h2>
+        <p class="text-sm text-gray-500 text-center">
+          食事傾向から肌の課題を分析し、<br />最適な美容成分を処方しています。
+        </p>
+      </div>`;
+    }
+
+    function renderResult() {
+      const d = diagnosisData[resultKey];
+      if (!d) return '';
+      const bigIcon = icon(d.icon, `w-8 h-8 ${d.iconColor}`);
+      return `
+      <div class="flex flex-col h-full p-6 anim-zoom overflow-y-auto">
+        <div class="text-center mb-4">
+          <p class="text-xs font-bold tracking-widest text-gray-400 mb-1">RECOMMENDED SERUM</p>
+          <h2 class="text-lg font-bold text-gray-800">今日の最適美容液選定</h2>
+        </div>
+
+        <div class="flex-1 rounded-3xl border-2 ${d.borderColor} ${d.bgColor} p-6 mb-6 relative overflow-hidden flex flex-col justify-center shadow-sm">
+          <div class="absolute -right-4 -top-4 opacity-10 transform rotate-12 scale-150">${bigIcon}</div>
+
+          <div class="relative z-10">
+            <div class="flex justify-between items-start mb-4">
+              <span class="px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm ${d.tagColor}">${d.type}アプローチ</span>
+              <div class="bg-white/60 p-2 rounded-full shadow-sm">${bigIcon}</div>
+            </div>
+
+            <h3 class="text-2xl font-black mb-1 ${d.textColor}">${d.name}</h3>
+
+            <div class="mt-4 bg-white/70 rounded-xl p-4 shadow-sm border border-white">
+              <p class="text-xs text-gray-500 font-bold mb-1">推測される肌課題</p>
+              <p class="text-sm font-semibold text-gray-800 mb-3">${d.concern}</p>
+
+              <p class="text-xs text-gray-500 font-bold mb-1">推奨ケア</p>
+              <p class="text-sm font-semibold text-indigo-900 mb-4 pb-3 border-b border-gray-200">${d.care}</p>
+
+              <p class="text-xs text-gray-500 font-bold mb-2">配合すべき美容成分</p>
+              <div class="flex flex-wrap gap-2">
+                ${d.ingredients.map(ing => `
+                  <span class="px-3 py-1.5 rounded-md text-xs font-bold bg-white border border-gray-100 ${d.textColor} shadow-sm">${ing}</span>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-auto">
+          <button onclick="handleReset()"
+            class="w-full bg-white border-2 border-gray-200 text-gray-700 font-bold py-4 px-6 rounded-xl hover:bg-gray-50 transition-all flex justify-center items-center gap-2 shadow-sm">
+            ${icon('rotate-ccw', 'w-4 h-4')}
+            もう一度診断する
+          </button>
+        </div>
+      </div>`;
+    }
+
+    function render() {
+      const el = document.getElementById('screen');
+      const views = { home: renderHome, question: renderQuestion, loading: renderLoading, result: renderResult };
+      el.innerHTML = views[currentScreen]();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function handleStart() {
+      currentScreen = 'question';
+      render();
+    }
+
+    function handleSelectOption(key) {
+      resultKey = key;
+      currentScreen = 'loading';
+      render();
+      // 診断中の演出（1.2秒後に結果画面へ）
+      setTimeout(() => { currentScreen = 'result'; render(); }, 1200);
+    }
+
+    function handleReset() {
+      currentScreen = 'home';
+      resultKey = null;
+      render();
+    }
+
+    render();
+  </script>
+</body>
+</html>
